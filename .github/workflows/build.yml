@@ -17,37 +17,26 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Diagnose and Unzip Project
+      - name: Extract Project
         run: |
-          echo "Listing repository files:"
-          ls -la
-          
-          ZIP_FILE="SDJ_PDL_Cash_Canteen_Android_Studio_Project.zip"
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "Error: $ZIP_FILE not found in root directory!"
-            exit 1
-          fi
-          
           mkdir -p extracted_project
-          unzip -q "$ZIP_FILE" -d extracted_project
-          echo "Extracted contents:"
-          ls -la extracted_project
+          unzip -q SDJ_PDL_Cash_Canteen_Android_Studio_Project.zip -d extracted_project
 
       - name: Build Debug APK with Gradle
         run: |
-          if [ -f "extracted_project/gradlew" ]; then
-            cd extracted_project
-          else
-            SUBDIR=$(find extracted_project -maxdepth 2 -name "gradlew" -exec dirname {} \; | head -n 1)
-            if [ -n "$SUBDIR" ]; then
-              cd "$SUBDIR"
-            else
-              echo "No gradlew found, generating Gradle wrapper..."
-              cd extracted_project/*
-              gradle wrapper
-            fi
+          cd extracted_project
+          # Kung may subfolder sa loob ng ZIP, hanapin kung nasaan ang build.gradle o gradlew
+          if [ -d "SDJ_PDL_Cash_Canteen_Android_Studio_Project" ]; then
+            cd SDJ_PDL_Cash_Canteen_Android_Studio_Project
+          elif [ -d "SDJ_PDL_Cash_Canteen" ]; then
+            cd SDJ_PDL_Cash_Canteen
           fi
-          
+
+          if [ ! -f "gradlew" ]; then
+            echo "Generating Gradle wrapper..."
+            gradle wrapper
+          fi
+
           chmod +x gradlew
           ./gradlew assembleDebug
 
@@ -55,4 +44,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SDJ-PDL-Cash-Canteen-debug-apk
-          path: "**/app/build/outputs/apk/debug/app-debug.apk"
+          path: "**/build/outputs/apk/debug/*.apk"
