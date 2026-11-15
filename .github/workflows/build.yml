@@ -22,15 +22,21 @@ jobs:
           mkdir -p extracted_project
           unzip -q SDJ_PDL_Cash_Canteen_Android_Studio_Project.zip -d extracted_project
           
-          # Awtomatikong hanapin ang folder kung nasaan ang build.gradle o gradlew
-          PROJECT_PATH=$(find extracted_project -name "build.gradle" -o -name "gradlew" | head -n 1 | xargs dirname)
-          if [ -z "$PROJECT_PATH" ]; then
-            cd extracted_project/*
+          # Pumunta muna sa extracted folder
+          cd extracted_project
+          
+          # Kung may subfolder na nalikha sa loob, pumasok dito kung naglalaman ng build.gradle o gradlew
+          if [ -d "SDJ_PDL_Cash_Canteen_Android_Studio_Project" ]; then
+            cd SDJ_PDL_Cash_Canteen_Android_Studio_Project
+          elif [ -d "SDJ_PDL_Cash_Canteen" ]; then
+            cd SDJ_PDL_Cash_Canteen
           else
-            cd "$PROJECT_PATH"
+            # Kung walang saktong pangalan, hanapin ang unang folder na may gradlew o build.gradle
+            SUBDIR=$(find . -maxdepth 2 -name "build.gradle" -o -name "gradlew" | head -n 1 | xargs dirname 2>/dev/null || echo ".")
+            cd "$SUBDIR"
           fi
           
-          echo "Working directory: $(pwd)"
+          echo "Current working directory: $(pwd)"
           
           if [ ! -f "gradlew" ]; then
             echo "Generating Gradle wrapper..."
