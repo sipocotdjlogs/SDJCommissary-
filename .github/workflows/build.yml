@@ -25,6 +25,29 @@ jobs:
           echo "$RUNNER_TEMP/gradle-8.9/bin" >> "$GITHUB_PATH"
 
       - name: Extract Android Project
+      
+      - name: Fix and Validate Android Manifest
+        shell: bash
+        run: |
+          set -e
+
+          MANIFEST="extracted_project/SDJAndroid/app/src/main/AndroidManifest.xml"
+
+          python3 -c '
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          p = Path("extracted_project/SDJAndroid/app/src/main/AndroidManifest.xml")
+          content = p.read_text(encoding="utf-8")
+          content = content.replace("SDJ Cash & Canteen", "SDJ Cash &amp; Canteen")
+          p.write_text(content, encoding="utf-8")
+
+          ET.parse(p)
+          print("AndroidManifest.xml is valid!")
+          '
+
+          echo "Manifest validation successful."
+          
         shell: bash
         run: |
           set -e
