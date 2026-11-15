@@ -17,26 +17,26 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Extract Project
+      - name: Extract and Locate Project
         run: |
           mkdir -p extracted_project
           unzip -q SDJ_PDL_Cash_Canteen_Android_Studio_Project.zip -d extracted_project
-
-      - name: Build Debug APK with Gradle
-        run: |
-          cd extracted_project
-          # Kung may subfolder sa loob ng ZIP, hanapin kung nasaan ang build.gradle o gradlew
-          if [ -d "SDJ_PDL_Cash_Canteen_Android_Studio_Project" ]; then
-            cd SDJ_PDL_Cash_Canteen_Android_Studio_Project
-          elif [ -d "SDJ_PDL_Cash_Canteen" ]; then
-            cd SDJ_PDL_Cash_Canteen
+          
+          # Awtomatikong hanapin ang folder kung nasaan ang build.gradle o gradlew
+          PROJECT_PATH=$(find extracted_project -name "build.gradle" -o -name "gradlew" | head -n 1 | xargs dirname)
+          if [ -z "$PROJECT_PATH" ]; then
+            cd extracted_project/*
+          else
+            cd "$PROJECT_PATH"
           fi
-
+          
+          echo "Working directory: $(pwd)"
+          
           if [ ! -f "gradlew" ]; then
             echo "Generating Gradle wrapper..."
             gradle wrapper
           fi
-
+          
           chmod +x gradlew
           ./gradlew assembleDebug
 
