@@ -17,15 +17,37 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Unzip Android Studio Project
+      - name: Diagnose and Unzip Project
         run: |
-          unzip -q SDJ_PDL_Cash_Canteen_Android_Studio_Project.zip -d extracted_project
+          echo "Listing repository files:"
+          ls -la
+          
+          ZIP_FILE="SDJ_PDL_Cash_Canteen_Android_Studio_Project.zip"
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "Error: $ZIP_FILE not found in root directory!"
+            exit 1
+          fi
+          
+          mkdir -p extracted_project
+          unzip -q "$ZIP_FILE" -d extracted_project
+          echo "Extracted contents:"
+          ls -la extracted_project
 
       - name: Build Debug APK with Gradle
         run: |
-          GRADLEW_PATH=$(find extracted_project -name "gradlew" | head -n 1)
-          PROJECT_DIR=$(dirname "$GRADLEW_PATH")
-          cd "$PROJECT_DIR"
+          if [ -f "extracted_project/gradlew" ]; then
+            cd extracted_project
+          else
+            SUBDIR=$(find extracted_project -maxdepth 2 -name "gradlew" -exec dirname {} \; | head -n 1)
+            if [ -n "$SUBDIR" ]; then
+              cd "$SUBDIR"
+            else
+              echo "No gradlew found, generating Gradle wrapper..."
+              cd extracted_project/*
+              gradle wrapper
+            fi
+          fi
+          
           chmod +x gradlew
           ./gradlew assembleDebug
 
