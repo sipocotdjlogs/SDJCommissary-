@@ -24,30 +24,58 @@ jobs:
           unzip -q gradle-8.9-bin.zip -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/gradle-8.9/bin" >> "$GITHUB_PATH"
 
+      - name: Extract Android Project
+        shell: bash
+        run: |
+          set -e
+
+          ZIP_FILE="SDJ_PDL_Cash_Canteen_Android_Studio_Project.zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: Android project ZIP not found!"
+            exit 1
+          fi
+
+          mkdir -p extracted_project
+
+          unzip -oq "$ZIP_FILE" -d extracted_project
+
+          echo "PROJECT EXTRACTED SUCCESSFULLY"
+
+          find extracted_project -maxdepth 3 -type f
+
       - name: Locate Android Project
         shell: bash
         run: |
           set -e
 
-          PROJECT_FILE=$(find . -type f \
-            \( -name "settings.gradle.kts" -o -name "settings.gradle" \) \
-            -print -quit)
+          PROJECT_FILE=$(find extracted_project -type f \
+            -name "settings.gradle.kts" -print -quit)
+
+          if [ -z "$PROJECT_FILE" ]; then
+            PROJECT_FILE=$(find extracted_project -type f \
+              -name "settings.gradle" -print -quit)
+          fi
 
           if [ -z "$PROJECT_FILE" ]; then
             echo "ERROR: Gradle settings file not found!"
-            find . -maxdepth 4 -type f
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$PROJECT_FILE")
 
-          echo "Project found: $PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+          echo "ANDROID PROJECT: $PROJECT_DIR"
 
       - name: Build SDJ Android APK
         shell: bash
         run: |
+          set -e
+
           cd "$PROJECT_DIR"
+
+          echo "Building SDJ PDL Cash Canteen..."
 
           gradle --version
 
@@ -57,5 +85,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SDJ-PDL-Cash-Canteen-debug-apk
-          path: "**/build/outputs/apk/debug/*.apk"
+          path: extracted_project/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 14
