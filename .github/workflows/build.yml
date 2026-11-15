@@ -33,7 +33,7 @@ jobs:
         run: |
           set -e
 
-          ZIP_FILE="SDJ_PDL_Cash_Canteen_Android_Studio_Project_ANDROID6_SCANNER_REPAIRED.zip""
+          ZIP_FILE="SDJ_PDL_Cash_Canteen_Android_Studio_Project_ANDROID6_SCANNER_REPAIRED.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "ERROR: Android project ZIP not found!"
