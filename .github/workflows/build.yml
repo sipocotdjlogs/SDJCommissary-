@@ -17,27 +17,23 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Extract and Locate Project
+      - name: Extract and Build APK
         run: |
           mkdir -p extracted_project
           unzip -q SDJ_PDL_Cash_Canteen_Android_Studio_Project.zip -d extracted_project
           
-          # Pumunta muna sa extracted folder
-          cd extracted_project
+          # Hanapin kung saang subfolder naroon ang settings.gradle o build.gradle
+          PROJECT_DIR=$(find extracted_project -name "settings.gradle" -o -name "build.gradle" | head -n 1 | xargs dirname)
           
-          # Kung may subfolder na nalikha sa loob, pumasok dito kung naglalaman ng build.gradle o gradlew
-          if [ -d "SDJ_PDL_Cash_Canteen_Android_Studio_Project" ]; then
-            cd SDJ_PDL_Cash_Canteen_Android_Studio_Project
-          elif [ -d "SDJ_PDL_Cash_Canteen" ]; then
-            cd SDJ_PDL_Cash_Canteen
-          else
-            # Kung walang saktong pangalan, hanapin ang unang folder na may gradlew o build.gradle
-            SUBDIR=$(find . -maxdepth 2 -name "build.gradle" -o -name "gradlew" | head -n 1 | xargs dirname 2>/dev/null || echo ".")
-            cd "$SUBDIR"
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Error: Gradle build files not found!"
+            exit 1
           fi
           
-          echo "Current working directory: $(pwd)"
+          echo "Found project directory at: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
           
+          # Kung walang gradlew, gumawa ng wrapper
           if [ ! -f "gradlew" ]; then
             echo "Generating Gradle wrapper..."
             gradle wrapper
