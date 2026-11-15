@@ -4,50 +4,35 @@ name: Build SDJ Android APK
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    name: Build SDJ Cash and Canteen
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout repository
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # 2. Install Java 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
+      # 3. Install Gradle 8.9
       - name: Install Gradle 8.9
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
           unzip -q gradle-8.9-bin.zip -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/gradle-8.9/bin" >> "$GITHUB_PATH"
 
+      # 4. Extract Android Studio Project
       - name: Extract Android Project
-      
-      - name: Fix and Validate Android Manifest
-        shell: bash
-        run: |
-          set -e
-
-          MANIFEST="extracted_project/SDJAndroid/app/src/main/AndroidManifest.xml"
-
-          python3 -c '
-          from pathlib import Path
-          import xml.etree.ElementTree as ET
-
-          p = Path("extracted_project/SDJAndroid/app/src/main/AndroidManifest.xml")
-          content = p.read_text(encoding="utf-8")
-          content = content.replace("SDJ Cash & Canteen", "SDJ Cash &amp; Canteen")
-          p.write_text(content, encoding="utf-8")
-
-          ET.parse(p)
-          print("AndroidManifest.xml is valid!")
-          '
-
-          echo "Manifest validation successful."
-          
         shell: bash
         run: |
           set -e
@@ -56,6 +41,7 @@ jobs:
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "ERROR: Android project ZIP not found!"
+            ls -lah
             exit 1
           fi
 
@@ -65,8 +51,9 @@ jobs:
 
           echo "PROJECT EXTRACTED SUCCESSFULLY"
 
-          find extracted_project -maxdepth 3 -type f
+          find extracted_project -maxdepth 4 -type f
 
+      # 5. Locate Android Project
       - name: Locate Android Project
         shell: bash
         run: |
@@ -91,6 +78,41 @@ jobs:
 
           echo "ANDROID PROJECT: $PROJECT_DIR"
 
+      # 6. Automatically Fix Android Manifest
+      - name: Fix Android Manifest
+        shell: bash
+        run: |
+          set -e
+
+          MANIFEST="$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+
+          if [ ! -f "$MANIFEST" ]; then
+            echo "ERROR: AndroidManifest.xml not found!"
+            exit 1
+          fi
+
+          python3 - "$MANIFEST" <<'PY'
+          import sys
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          manifest = Path(sys.argv[1])
+
+          content = manifest.read_text(encoding="utf-8")
+
+          content = content.replace(
+              "SDJ Cash & Canteen",
+              "SDJ Cash &amp; Canteen"
+          )
+
+          manifest.write_text(content, encoding="utf-8")
+
+          ET.parse(manifest)
+
+          print("AndroidManifest.xml is valid!")
+          PY
+
+      # 7. Build Android APK
       - name: Build SDJ Android APK
         shell: bash
         run: |
@@ -98,13 +120,36 @@ jobs:
 
           cd "$PROJECT_DIR"
 
-          echo "Building SDJ PDL Cash Canteen..."
+          echo "Starting SDJ Android APK Build..."
 
           gradle --version
 
           gradle --no-daemon assembleDebug --stacktrace
 
-      - name: Upload APK Artifact
+          echo "APK BUILD COMPLETED!"
+
+      # 8. Verify APK
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -e
+
+          find "$PROJECT_DIR" -type f \
+            -path "*/build/outputs/apk/debug/*.apk" \
+            -print
+
+          APK_COUNT=$(find "$PROJECT_DIR" -type f \
+            -path "*/build/outputs/apk/debug/*.apk" | wc -l)
+
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo "ERROR: APK file was not generated!"
+            exit 1
+          fi
+
+          echo "APK FILE SUCCESSFULLY GENERATED!"
+
+      # 9. Upload APK
+      - name: Upload SDJ Android APK
         uses: actions/upload-artifact@v4
         with:
           name: SDJ-PDL-Cash-Canteen-debug-apk
