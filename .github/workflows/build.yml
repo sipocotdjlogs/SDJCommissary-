@@ -18,66 +18,44 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract Android Studio Project
+      - name: Install Gradle 8.9
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q gradle-8.9-bin.zip -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-8.9/bin" >> "$GITHUB_PATH"
+
+      - name: Locate Android Project
         shell: bash
         run: |
           set -e
 
-          ZIP_FILE="SDJ_PDL_Cash_Canteen_Android_Studio_Project.zip"
-
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: Project ZIP file not found!"
-            ls -lah
-            exit 1
-          fi
-
-          mkdir -p extracted_project
-
-          unzip -q "$ZIP_FILE" -d extracted_project
-
-          echo "Searching for Gradle project files..."
-
-          PROJECT_FILE=$(find extracted_project -type f \
-            \( -name "settings.gradle" -o -name "settings.gradle.kts" \) \
+          PROJECT_FILE=$(find . -type f \
+            \( -name "settings.gradle.kts" -o -name "settings.gradle" \) \
             -print -quit)
 
           if [ -z "$PROJECT_FILE" ]; then
-            PROJECT_FILE=$(find extracted_project -type f \
-              \( -name "build.gradle" -o -name "build.gradle.kts" \) \
-              -print -quit)
-          fi
-
-          if [ -z "$PROJECT_FILE" ]; then
-            echo "ERROR: No Gradle build files found!"
-            echo "Extracted files:"
-            find extracted_project -maxdepth 4 -type f
+            echo "ERROR: Gradle settings file not found!"
+            find . -maxdepth 4 -type f
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$PROJECT_FILE")
 
-          echo "Found project at: $PROJECT_DIR"
-
+          echo "Project found: $PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-      - name: Build Android APK
+      - name: Build SDJ Android APK
         shell: bash
         run: |
           cd "$PROJECT_DIR"
 
-          if [ ! -f "gradlew" ]; then
-            echo "ERROR: Gradle wrapper (gradlew) not found!"
-            echo "Please include the Gradle wrapper in your Android Studio project ZIP."
-            exit 1
-          fi
+          gradle --version
 
-          chmod +x gradlew
-
-          ./gradlew assembleDebug --stacktrace
+          gradle --no-daemon assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SDJ-PDL-Cash-Canteen-debug-apk
-          path: extracted_project/**/build/outputs/apk/debug/*.apk
+          path: "**/build/outputs/apk/debug/*.apk"
           if-no-files-found: error
