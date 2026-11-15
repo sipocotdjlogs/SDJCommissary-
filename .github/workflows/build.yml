@@ -13,25 +13,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Install Java 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # 3. Install Gradle 8.9
       - name: Install Gradle 8.9
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
           unzip -q gradle-8.9-bin.zip -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/gradle-8.9/bin" >> "$GITHUB_PATH"
 
-      # 4. Extract Android Studio Project
       - name: Extract Android Project
         shell: bash
         run: |
@@ -41,19 +37,14 @@ jobs:
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "ERROR: Android project ZIP not found!"
-            ls -lah
             exit 1
           fi
 
           mkdir -p extracted_project
-
           unzip -oq "$ZIP_FILE" -d extracted_project
 
           echo "PROJECT EXTRACTED SUCCESSFULLY"
 
-          find extracted_project -maxdepth 4 -type f
-
-      # 5. Locate Android Project
       - name: Locate Android Project
         shell: bash
         run: |
@@ -75,10 +66,8 @@ jobs:
           PROJECT_DIR=$(dirname "$PROJECT_FILE")
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-
           echo "ANDROID PROJECT: $PROJECT_DIR"
 
-      # 6. Automatically Fix Android Manifest
       - name: Fix Android Manifest
         shell: bash
         run: |
@@ -86,33 +75,64 @@ jobs:
 
           MANIFEST="$PROJECT_DIR/app/src/main/AndroidManifest.xml"
 
-          if [ ! -f "$MANIFEST" ]; then
-            echo "ERROR: AndroidManifest.xml not found!"
-            exit 1
-          fi
-
           python3 - "$MANIFEST" <<'PY'
           import sys
           from pathlib import Path
           import xml.etree.ElementTree as ET
 
-          manifest = Path(sys.argv[1])
-
-          content = manifest.read_text(encoding="utf-8")
+          p = Path(sys.argv[1])
+          content = p.read_text(encoding="utf-8")
 
           content = content.replace(
               "SDJ Cash & Canteen",
               "SDJ Cash &amp; Canteen"
           )
 
-          manifest.write_text(content, encoding="utf-8")
+          p.write_text(content, encoding="utf-8")
+          ET.parse(p)
 
-          ET.parse(manifest)
-
-          print("AndroidManifest.xml is valid!")
+          print("Manifest is valid!")
           PY
 
-      # 7. Build Android APK
+      - name: Fix Java and Kotlin JVM Targets
+        shell: bash
+        run: |
+          set -e
+
+          GRADLE_FILE="$PROJECT_DIR/app/build.gradle.kts"
+
+          python3 - "$GRADLE_FILE" <<'PY'
+          import sys
+          from pathlib import Path
+
+          p = Path(sys.argv[1])
+          content = p.read_text(encoding="utf-8")
+
+          if "compileOptions" not in content:
+              content = content.replace(
+                  "android {",
+                  """android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          """,
+                  1
+              )
+
+          p.write_text(content, encoding="utf-8")
+
+          print("Java target: 17")
+          print("Kotlin target: 17")
+          print("Gradle configuration updated!")
+          PY
+
+          cat "$GRADLE_FILE"
+
       - name: Build SDJ Android APK
         shell: bash
         run: |
@@ -120,7 +140,7 @@ jobs:
 
           cd "$PROJECT_DIR"
 
-          echo "Starting SDJ Android APK Build..."
+          echo "Building SDJ Cash and Canteen..."
 
           gradle --version
 
@@ -128,27 +148,24 @@ jobs:
 
           echo "APK BUILD COMPLETED!"
 
-      # 8. Verify APK
       - name: Verify APK
         shell: bash
         run: |
           set -e
 
-          find "$PROJECT_DIR" -type f \
-            -path "*/build/outputs/apk/debug/*.apk" \
-            -print
-
           APK_COUNT=$(find "$PROJECT_DIR" -type f \
             -path "*/build/outputs/apk/debug/*.apk" | wc -l)
 
           if [ "$APK_COUNT" -eq 0 ]; then
-            echo "ERROR: APK file was not generated!"
+            echo "ERROR: APK was not generated!"
             exit 1
           fi
 
-          echo "APK FILE SUCCESSFULLY GENERATED!"
+          find "$PROJECT_DIR" -type f \
+            -path "*/build/outputs/apk/debug/*.apk"
 
-      # 9. Upload APK
+          echo "APK VERIFIED SUCCESSFULLY!"
+
       - name: Upload SDJ Android APK
         uses: actions/upload-artifact@v4
         with:
